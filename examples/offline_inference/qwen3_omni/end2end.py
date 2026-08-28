@@ -387,33 +387,42 @@ def main(args):
             print(f"Request ID: {request_id}, Text saved to {out_txt}")
         elif stage_outputs.final_output_type == "audio":
             request_id = output.request_id
-            if hasattr(output, "multimodal_output") and output.multimodal_output:
-                mm = output.multimodal_output
-                audio_tensor = mm.get("audio", mm) if isinstance(mm, dict) else mm
-            elif output.outputs and hasattr(output.outputs[0], "multimodal_output") and output.outputs[0].multimodal_output:
-                mm = output.outputs[0].multimodal_output
-                audio_tensor = mm.get("audio", mm) if isinstance(mm, dict) else mm
+            mm = getattr(output, "multimodal_output", None) or getattr(output, "_multimodal_output", None)
+            if not mm and output.outputs:
+                mm = getattr(output.outputs[0], "multimodal_output", None)
+            
+            if isinstance(mm, dict):
+                audio_tensor = mm.get("audio", mm.get("waveform", mm.get("audio_waveform", None)))
             else:
-                audio_tensor = getattr(output, "_multimodal_output", {}).get("audio", None)
+                audio_tensor = mm
+
             output_wav = os.path.join(output_dir, f"output_{request_id}.wav")
 
-            # Convert to numpy array and ensure correct format
-            # In async_chunk mode, audio may arrive as a list of chunks
-            if isinstance(audio_tensor, list):
-                import torch
+            if audio_tensor is not None:
+                # Convert to numpy array and ensure correct format
+                # In async_chunk mode, audio may arrive as a list of chunks
+                if isinstance(audio_tensor, list):
+                    import torch
+                    audio_tensor = torch.cat(
+                        [(t if isinstance(t, torch.Tensor) else torch.tensor(t)).flatten() for t in audio_tensor]
+                    )
+                if hasattr(audio_tensor, "float"):
+                    audio_numpy = audio_tensor.float().detach().cpu().numpy()
+                elif hasattr(audio_tensor, "numpy"):
+                    audio_numpy = audio_tensor.numpy()
+                else:
+                    import numpy as np
+                    audio_numpy = np.array(audio_tensor, dtype=np.float32)
 
-                audio_tensor = torch.cat(
-                    [(t if isinstance(t, torch.Tensor) else torch.tensor(t)).flatten() for t in audio_tensor]
-                )
-            audio_numpy = audio_tensor.float().detach().cpu().numpy()
+                # Ensure audio is 1D (flatten if needed)
+                if audio_numpy.ndim > 1:
+                    audio_numpy = audio_numpy.flatten()
 
-            # Ensure audio is 1D (flatten if needed)
-            if audio_numpy.ndim > 1:
-                audio_numpy = audio_numpy.flatten()
-
-            # Save audio file with explicit WAV format
-            sf.write(output_wav, audio_numpy, samplerate=24000, format="WAV")
-            print(f"Request ID: {request_id}, Saved audio to {output_wav}")
+                # Save audio file with explicit WAV format
+                sf.write(output_wav, audio_numpy, samplerate=24000, format="WAV")
+                print(f"Request ID: {request_id}, Saved audio to {output_wav}")
+            else:
+                print(f"Request ID: {request_id}, Audio stage completed (multimodal_output={mm})")
 
         processed_count += 1
         if profiler_enabled and processed_count >= total_requests:
