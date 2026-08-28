@@ -23,7 +23,7 @@ from vllm.multimodal.media.audio import load_audio
 from vllm_omni.entrypoints.omni import Omni
 from vllm_omni.utils.tracking_parser import TrackingArgumentParser
 
-SEED = 42
+SEED = None
 
 
 class QueryResult(NamedTuple):
@@ -306,14 +306,14 @@ def main(args):
         max_tokens=1200,
         repetition_penalty=1.05,
         logit_bias={},
-        seed=SEED,
+        seed=None,
     )
 
     talker_sampling_params = SamplingParams(
         temperature=0.9,
         top_k=50,
         max_tokens=4096,
-        seed=SEED,
+        seed=None,
         detokenize=False,
         repetition_penalty=1.05,
         stop_token_ids=[2150],  # TALKER_CODEC_EOS_TOKEN_ID
@@ -325,7 +325,7 @@ def main(args):
         top_p=1.0,
         top_k=-1,
         max_tokens=4096 * 16,
-        seed=SEED,
+        seed=None,
         detokenize=True,
         repetition_penalty=1.1,
     )
@@ -387,7 +387,14 @@ def main(args):
             print(f"Request ID: {request_id}, Text saved to {out_txt}")
         elif stage_outputs.final_output_type == "audio":
             request_id = output.request_id
-            audio_tensor = output.outputs[0].multimodal_output["audio"]
+            if hasattr(output, "multimodal_output") and output.multimodal_output:
+                mm = output.multimodal_output
+                audio_tensor = mm.get("audio", mm) if isinstance(mm, dict) else mm
+            elif output.outputs and hasattr(output.outputs[0], "multimodal_output") and output.outputs[0].multimodal_output:
+                mm = output.outputs[0].multimodal_output
+                audio_tensor = mm.get("audio", mm) if isinstance(mm, dict) else mm
+            else:
+                audio_tensor = getattr(output, "_multimodal_output", {}).get("audio", None)
             output_wav = os.path.join(output_dir, f"output_{request_id}.wav")
 
             # Convert to numpy array and ensure correct format
@@ -432,7 +439,7 @@ def parse_args():
         "--query-type",
         "-q",
         type=str,
-        default="use_mixed_modalities",
+        default="text",
         choices=query_map.keys(),
         help="Query type.",
     )
