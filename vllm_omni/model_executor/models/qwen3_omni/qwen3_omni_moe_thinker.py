@@ -1472,12 +1472,14 @@ class Qwen3OmniMoeThinkerForConditionalGeneration(
             )
 
         # Default: standard merge (no interleaving), same as parent class.
-        # multimodal_embeddings may have been updated above (deepstack
-        # main-scale). Use super() to stay consistent with the parent
-        # implementation and avoid issues seen in Qwen2.5-Omni (#34506).
+        # Ensure only embeddings matching the text hidden_size are merged into inputs_embeds
+        filtered_mm = [
+            e for e in multimodal_embeddings
+            if e.shape[-1] == self.config.text_config.hidden_size
+        ]
         return super().embed_input_ids(
             input_ids,
-            multimodal_embeddings=multimodal_embeddings,
+            multimodal_embeddings=filtered_mm,
             is_multimodal=is_multimodal,
         )
 
