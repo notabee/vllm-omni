@@ -506,6 +506,18 @@ def parse_args():
         help="Path to a deploy config YAML.",
     )
     parser.add_argument(
+        "--stage-overrides",
+        type=str,
+        default=None,
+        help="JSON string of stage configuration overrides.",
+    )
+    parser.add_argument(
+        "--strategy-config",
+        type=str,
+        default=None,
+        help="Path to a strategy config YAML.",
+    )
+    parser.add_argument(
         "--video-path",
         "-v",
         type=str,
