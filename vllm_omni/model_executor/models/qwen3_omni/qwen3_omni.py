@@ -563,13 +563,19 @@ class Qwen3OmniMoeForConditionalGeneration(
             # These will later be projected into talker text space by the talker stage.
             multimodal_outputs: OmniPayload = captured_layer_dict if captured_layer_dict is not None else {}
             try:
-                thinker_tts_embeds = self.thinker.embed_input_ids(self.tts_tokens)  # [1,3,thinker_hidden]
-                if (
-                    isinstance(thinker_tts_embeds, torch.Tensor)
-                    and thinker_tts_embeds.ndim == 3
-                    and thinker_tts_embeds.shape[1] == 3
-                ):
-                    bos_eos_pad = thinker_tts_embeds.to(text_hidden_states.device).chunk(3, dim=1)  # 3 * [1,1,H]
+                if getattr(self, "_cached_tts_bos_eos_pad", None) is None:
+                    tokens = self.tts_tokens.to(text_hidden_states.device)
+                    thinker_tts_embeds = self.thinker.embed_input_ids(tokens)  # [1,3,thinker_hidden]
+                    if (
+                        isinstance(thinker_tts_embeds, torch.Tensor)
+                        and thinker_tts_embeds.ndim == 3
+                        and thinker_tts_embeds.shape[1] == 3
+                    ):
+                        self._cached_tts_bos_eos_pad = [
+                            c.detach() for c in thinker_tts_embeds.chunk(3, dim=1)
+                        ]
+                if getattr(self, "_cached_tts_bos_eos_pad", None) is not None:
+                    bos_eos_pad = self._cached_tts_bos_eos_pad
                     embed = multimodal_outputs.setdefault("embed", {})
                     embed["tts_bos"] = [bos_eos_pad[0]]
                     embed["tts_eos"] = [bos_eos_pad[1]]
@@ -585,23 +591,22 @@ class Qwen3OmniMoeForConditionalGeneration(
             )
         elif self.model_stage == "talker":
             talker_hidden = model_outputs
-            # merge the code_predictor_codes from the info_dict list into a single tensor
             multimodal_outputs: dict = None
-            # Here is the only place to use model_intermediate_buffer. After MTP in the
-            # preprocess function, the code_predictor_codes are stored in the info_dict list.
-            # We need to merge the tensors from different requests into a single tensor.
-            # In the future, we may allow user to custom an aggregated function.
             info_dicts = kwargs.get("model_intermediate_buffer")
             if info_dicts is None:
                 info_dicts = kwargs.get("runtime_additional_information")
 
             if "runtime_additional_information" in kwargs and "model_intermediate_buffer" not in kwargs:
                 logger.warning_once("runtime_additional_information is deprecated, use model_intermediate_buffer")
-            code_predictor_codes = [info.get("codes", {}).get("audio") for info in info_dicts]
-            audio_codes = torch.cat(code_predictor_codes, dim=0)
-            multimodal_outputs: OmniPayload = {"codes": {"audio": audio_codes}}
-            span_len = audio_codes.shape[0]
-            talker_hidden = talker_hidden[:span_len]
+            if info_dicts:
+                code_predictor_codes = [
+                    info.get("codes", {}).get("audio") for info in info_dicts if isinstance(info, dict)
+                ]
+                if code_predictor_codes and all(c is not None for c in code_predictor_codes):
+                    audio_codes = torch.cat(code_predictor_codes, dim=0)
+                    multimodal_outputs = {"codes": {"audio": audio_codes}}
+                    span_len = audio_codes.shape[0]
+                    talker_hidden = talker_hidden[:span_len]
             return OmniOutput(text_hidden_states=talker_hidden, multimodal_outputs=multimodal_outputs)
         elif self.model_stage == "code2wav":
             audio_tensors = model_outputs
