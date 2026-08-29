@@ -788,7 +788,7 @@ class Qwen3OmniMoeForConditionalGeneration(
             input_ids, input_embeds, update_dict = self.talker_preprocess_prefill(input_ids, input_embeds, payload)
             code_predictor_codes = torch.zeros(
                 (input_embeds.shape[0], self.talker.num_code_groups),
-                device=self._module_device(self.talker),
+                device="cpu",
                 dtype=torch.long,
             )
             update_dict.setdefault("codes", {})["audio"] = code_predictor_codes
