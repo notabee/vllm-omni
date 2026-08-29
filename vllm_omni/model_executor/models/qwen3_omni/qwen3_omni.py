@@ -1341,6 +1341,11 @@ class Qwen3OmniMoeForConditionalGeneration(
     ) -> torch.Tensor | None:
         """Compute logits from hidden states."""
         # Handle OmniOutput type
+        if getattr(self, "model_stage", None) == "code2wav":
+            if isinstance(hidden_states, OmniOutput):
+                return hidden_states.text_hidden_states
+            return hidden_states
+
         if isinstance(hidden_states, OmniOutput):
             hidden_states = hidden_states.text_hidden_states
 
@@ -1352,7 +1357,10 @@ class Qwen3OmniMoeForConditionalGeneration(
             self._warn_talker_sampling_temperature(sampling_metadata)
 
         # Use active model for logits computation
-        logits = self.model.compute_logits(hidden_states)  # V, d
+        if hasattr(self.model, "compute_logits"):
+            logits = self.model.compute_logits(hidden_states)  # V, d
+        else:
+            logits = hidden_states
         # Talker: suppress tokens by setting their probability to ~1e-9 (finite very small),
         # implemented by assigning their logits to log(1e-9).
 
