@@ -468,7 +468,11 @@ def thinker2talker_async_chunk(
     language = extract_language_from_request(request)
 
     def _maybe_cpu(t: Any) -> torch.Tensor | None:
-        return t.detach().cpu() if isinstance(t, torch.Tensor) else None
+        if isinstance(t, torch.Tensor):
+            return t.detach().cpu()
+        if isinstance(t, (list, tuple)) and len(t) > 0 and isinstance(t[0], torch.Tensor):
+            return t[0].detach().cpu()
+        return None
 
     if chunk_id == 0:
         all_token_ids = _ensure_list(request.all_token_ids)
