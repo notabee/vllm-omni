@@ -392,7 +392,7 @@ def main(args):
                 mm = getattr(output.outputs[0], "multimodal_output", None)
             
             if isinstance(mm, dict):
-                audio_tensor = mm.get("audio", mm.get("waveform", mm.get("audio_waveform", None)))
+                audio_tensor = mm.get("audio", mm.get("waveform", mm.get("audio_waveform", mm.get("model_outputs", None))))
             else:
                 audio_tensor = mm
 

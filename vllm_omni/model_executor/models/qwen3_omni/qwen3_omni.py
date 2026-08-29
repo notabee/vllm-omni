@@ -613,6 +613,8 @@ class Qwen3OmniMoeForConditionalGeneration(
                 text_hidden_states=None,
                 multimodal_outputs={
                     "model_outputs": [audio_tensor.reshape(1, -1) for audio_tensor in audio_tensors],
+                    "audio": [audio_tensor.flatten() for audio_tensor in audio_tensors],
+                    "waveform": [audio_tensor.flatten() for audio_tensor in audio_tensors],
                     "sr": sr_tensors,
                 },
             )
