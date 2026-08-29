@@ -7,6 +7,8 @@ from collections import defaultdict, deque
 from collections.abc import Callable, Mapping
 from typing import Any
 
+import torch
+
 try:
     from vllm.v1.metrics.stats import PrefillStats
 except ImportError:
