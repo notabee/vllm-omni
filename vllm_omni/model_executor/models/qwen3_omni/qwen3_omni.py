@@ -771,7 +771,11 @@ class Qwen3OmniMoeForConditionalGeneration(
         if input_embeds is None and input_ids is not None:
             input_embeds = self.talker.embed_input_ids(input_ids)
 
-        span_len = input_ids.shape[0]
+        if input_ids is None and input_embeds is not None:
+            span_len = input_embeds.shape[0]
+            input_ids = torch.zeros((span_len,), dtype=torch.long, device=input_embeds.device)
+        else:
+            span_len = input_ids.shape[0] if input_ids is not None else 1
         update_dict: OmniPayload = {}
         # Prefix caching can reduce a new request's remaining prefill span to a
         # single token. Use the runner-provided phase flag instead of span_len.
