@@ -479,6 +479,14 @@ class Qwen3OmniMoeForConditionalGeneration(
 
         # ========== Stage 3: Code2Wav ==========
         elif self.model_stage == "code2wav":
+            if input_ids is None:
+                # special case for dummy/profile run
+                try:
+                    dev = inputs_embeds.device if inputs_embeds is not None else next(self.parameters()).device
+                except Exception:
+                    dev = torch.device("tpu" if hasattr(torch, "tpu") else "cpu")
+                input_ids = torch.zeros(16, dtype=torch.long, device=dev)
+
             seq_token_counts: list[int] | None = kwargs.get("seq_token_counts")
 
             # Extract codec codes from input

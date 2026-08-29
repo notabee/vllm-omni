@@ -135,3 +135,16 @@ platforms:
         gpu_memory_utilization: 0.3
         max_cudagraph_capture_size: 0
         devices: "4"
+
+  tpu:
+    stages:
+      - stage_id: 0
+        tensor_parallel_size: 2
+        devices: "0,1"
+      - stage_id: 1
+        tensor_parallel_size: 1
+        devices: "2"
+      - stage_id: 2
+        tensor_parallel_size: 1
+        devices: "3"
+

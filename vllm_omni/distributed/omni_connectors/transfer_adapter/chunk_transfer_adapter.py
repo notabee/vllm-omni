@@ -7,8 +7,14 @@ from collections import defaultdict, deque
 from collections.abc import Callable, Mapping
 from typing import Any
 
-import torch
-from vllm.v1.metrics.stats import PrefillStats
+try:
+    from vllm.v1.metrics.stats import PrefillStats
+except ImportError:
+    from dataclasses import dataclass
+
+    @dataclass
+    class PrefillStats:
+        pass
 from vllm.v1.request import Request, RequestStatus
 
 from vllm_omni.data_entry_keys import MetaStruct, OmniPayloadStruct, unflatten_payload

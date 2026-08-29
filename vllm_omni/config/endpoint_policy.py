@@ -8,7 +8,16 @@ from typing import NamedTuple
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from vllm.entrypoints.serve.utils.error_response import create_error_response
+try:
+    from vllm.entrypoints.serve.utils.error_response import create_error_response
+except ImportError:
+    try:
+        from vllm.entrypoints.openai.protocol import create_error_response
+    except ImportError:
+        try:
+            from vllm.entrypoints.openai.api_server import create_error_response
+        except ImportError:
+            from vllm.entrypoints.utils import create_error_response
 
 
 class RouteTarget(NamedTuple):
