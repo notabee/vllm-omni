@@ -479,8 +479,8 @@ class OrchestratorArgs:
     """
 
     # === Lifecycle ===
-    stage_init_timeout: int = 300
-    init_timeout: int = 600
+    stage_init_timeout: int = 1800
+    init_timeout: int = 1800
 
     # === Cross-stage Communication ===
     batch_timeout: int = 10

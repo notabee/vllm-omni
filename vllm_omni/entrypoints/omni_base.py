@@ -169,8 +169,8 @@ class OmniBase(PDDisaggregationMixin):
                 "You should instead, pass the keyword arguments used to initialize the engine args "
                 "directly to this object's initializer."
             )
-        stage_init_timeout = kwargs.pop("stage_init_timeout", 300)
-        init_timeout = kwargs.pop("init_timeout", 600)
+        init_timeout = kwargs.pop("init_timeout", 1800)
+        stage_init_timeout = kwargs.pop("stage_init_timeout", init_timeout)
         log_stats = kwargs.pop("log_stats", False)
         self._enable_ar_profiler = kwargs.pop("enable_ar_profiler", False)
         # NOTE: read-only lookup — must NOT pop. Popping here drops the key
