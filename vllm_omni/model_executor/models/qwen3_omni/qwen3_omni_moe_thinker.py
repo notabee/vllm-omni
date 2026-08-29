@@ -438,6 +438,12 @@ class Qwen3OmniMoeAudioEncoder(_Qwen3OmniMoeAudioEncoder):
         chunk_lengths[tail_chunk_index] = feature_lens % (self.n_window * 2)
         chunk_lengths[chunk_lengths == 0] = self.n_window * 2
 
+        total_needed = int(chunk_lengths.sum().item())
+        if input_features.shape[1] < total_needed:
+            input_features = F.pad(input_features, (0, total_needed - input_features.shape[1]), value=0)
+        elif input_features.shape[1] > total_needed:
+            input_features = input_features[:, :total_needed]
+
         chunk_list = input_features.T.split(chunk_lengths.tolist(), dim=0)
         padded_feature = nn.utils.rnn.pad_sequence(chunk_list, batch_first=True).transpose(1, 2)
 
