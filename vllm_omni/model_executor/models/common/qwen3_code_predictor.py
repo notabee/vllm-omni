@@ -297,7 +297,7 @@ class CodePredictorAttention(nn.Module):
             q = torch_npu.npu_rotary_mul(q, cos, sin)
             k = torch_npu.npu_rotary_mul(k, cos, sin)
             attn_out = self._forward_npu_attention(q, k, v, bsz, seq_len)
-        elif current_omni_platform.is_tpu():
+        elif q.device.type == "tpu" or current_omni_platform.is_tpu() or getattr(current_omni_platform, "device_name", "") == "tpu":
             q = (q * cos) + (_rotate_half(q) * sin)
             k = (k * cos) + (_rotate_half(k) * sin)
             if self.is_gqa:

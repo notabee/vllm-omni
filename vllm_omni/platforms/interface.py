@@ -57,6 +57,9 @@ class OmniPlatform(Platform):
     def is_out_of_tree(self) -> bool:
         return self._omni_enum == OmniPlatformEnum.OOT
 
+    def is_tpu(self) -> bool:
+        return getattr(self, "device_name", "") == "tpu" or getattr(self, "device_type", "") == "tpu" or getattr(self, "is_tpu_platform", False)
+
     @classmethod
     def get_omni_ar_worker_cls(cls) -> str:
         raise NotImplementedError
