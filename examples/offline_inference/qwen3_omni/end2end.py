@@ -363,6 +363,7 @@ def main(args):
 
     total_requests = len(prompts)
     processed_count = 0
+    accumulated_audio = {}
 
     print(f"query type: {args.query_type}")
 
@@ -446,9 +447,15 @@ def main(args):
                     if hasattr(audio_numpy, "ndim") and audio_numpy.ndim > 1:
                         audio_numpy = audio_numpy.flatten()
 
-                    # Save audio file with explicit WAV format
-                    sf.write(output_wav, audio_numpy, samplerate=24000, format="WAV")
-                    print(f"Request ID: {request_id}, Saved audio to {output_wav}")
+                    if request_id not in accumulated_audio:
+                        accumulated_audio[request_id] = []
+                    accumulated_audio[request_id].append(audio_numpy)
+                    import numpy as np
+                    full_audio = np.concatenate(accumulated_audio[request_id], axis=-1)
+
+                    # Save accumulated audio file with explicit WAV format
+                    sf.write(output_wav, full_audio, samplerate=24000, format="WAV")
+                    print(f"Request ID: {request_id}, Saved audio ({len(full_audio)/24000:.2f}s) to {output_wav}")
                 else:
                     print(f"Request ID: {request_id}, Could not parse audio tensor from {mm}")
             else:

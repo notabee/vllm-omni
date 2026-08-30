@@ -489,37 +489,51 @@ class Qwen3OmniMoeForConditionalGeneration(
 
             seq_token_counts: list[int] | None = kwargs.get("seq_token_counts")
 
-            # Extract codec codes from input
-            if input_ids.shape[0] % 16 == 0:
-                if seq_token_counts is not None:
-                    max_seq_len = max(seq_token_counts) // 16
-                    batch_size = len(seq_token_counts)
-                    split_codes = torch.split(input_ids, seq_token_counts, dim=0)
-                    codes = torch.zeros((batch_size, 16, max_seq_len), device=input_ids.device, dtype=input_ids.dtype)
-                    for idx, code in enumerate(split_codes):
-                        seq_len = code.shape[0] // 16
-                        codes[idx, :, :seq_len] = code.reshape(16, seq_len)
+            # Check if codes are provided directly via runtime_additional_information
+            codes = None
+            if runtime_additional_information is not None:
+                for info in runtime_additional_information:
+                    c = info.get("codes", {}).get("audio", None) if isinstance(info.get("codes"), dict) else None
+                    if c is not None and isinstance(c, torch.Tensor) and c.numel() > 0:
+                        dev = inputs_embeds.device if inputs_embeds is not None else next(self.parameters()).device
+                        if c.ndim == 2:
+                            codes = c.unsqueeze(0).to(device=dev, dtype=torch.long)
+                        elif c.ndim == 3:
+                            codes = c.to(device=dev, dtype=torch.long)
+                        break
+
+            if codes is None:
+                # Extract codec codes from input
+                if input_ids.shape[0] % 16 == 0:
+                    if seq_token_counts is not None:
+                        max_seq_len = max(seq_token_counts) // 16
+                        batch_size = len(seq_token_counts)
+                        split_codes = torch.split(input_ids, seq_token_counts, dim=0)
+                        codes = torch.zeros((batch_size, 16, max_seq_len), device=input_ids.device, dtype=input_ids.dtype)
+                        for idx, code in enumerate(split_codes):
+                            seq_len = code.shape[0] // 16
+                            codes[idx, :, :seq_len] = code.reshape(16, seq_len)
+                    else:
+                        codes = input_ids.reshape(1, 16, -1)
                 else:
-                    codes = input_ids.reshape(1, 16, -1)
-            else:
-                if seq_token_counts is None:
-                    logger.debug(
-                        "Code2Wav warmup input length %s is not divisible by 16; padding with zeros.",
-                        input_ids.shape[0],
+                    if seq_token_counts is None:
+                        logger.debug(
+                            "Code2Wav warmup input length %s is not divisible by 16; padding with zeros.",
+                            input_ids.shape[0],
+                        )
+                    else:
+                        logger.warning_once(
+                            "Code2Wav input length is not divisible by 16; padding with zeros. "
+                            "This is expected only during cudagraph warmup."
+                        )
+                    input_ids_flatten = input_ids.reshape(-1)
+                    input_ids_flatten = torch.cat(
+                        [
+                            input_ids_flatten,
+                            torch.zeros(16 - input_ids.shape[0] % 16, dtype=torch.long, device=input_ids.device),
+                        ]
                     )
-                else:
-                    logger.warning_once(
-                        "Code2Wav input length is not divisible by 16; padding with zeros. "
-                        "This is expected only during cudagraph warmup."
-                    )
-                input_ids_flatten = input_ids.reshape(-1)
-                input_ids_flatten = torch.cat(
-                    [
-                        input_ids_flatten,
-                        torch.zeros(16 - input_ids.shape[0] % 16, dtype=torch.long, device=input_ids.device),
-                    ]
-                )
-                codes = input_ids_flatten.reshape(1, 16, -1)
+                    codes = input_ids_flatten.reshape(1, 16, -1)
 
             # Generate audio from codec codes
             # Get every request's left_context_size from runtime_additional_information (passed via kwargs)
