@@ -324,7 +324,7 @@ def main(args):
         temperature=0.0,
         top_p=1.0,
         top_k=-1,
-        max_tokens=4096 * 16,
+        max_tokens=1,
         seed=None,
         detokenize=True,
         repetition_penalty=1.1,
@@ -450,10 +450,9 @@ def main(args):
                     if request_id not in accumulated_audio:
                         accumulated_audio[request_id] = []
                     accumulated_audio[request_id].append(audio_numpy)
-                    import numpy as np
-                    full_audio = np.concatenate(accumulated_audio[request_id], axis=-1)
+                    full_audio = audio_numpy
 
-                    # Save accumulated audio file with explicit WAV format
+                    # Save audio file with explicit WAV format
                     sf.write(output_wav, full_audio, samplerate=24000, format="WAV")
                     print(f"Request ID: {request_id}, Saved audio ({len(full_audio)/24000:.2f}s) to {output_wav}")
                 else:

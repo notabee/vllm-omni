@@ -69,7 +69,7 @@ QWEN3_OMNI_PIPELINE = PipelineConfig(
             final_output_type="audio",
             hf_config_name="thinker_config",
             engine_output_type="audio",
-            sampling_constraints={"detokenize": True},
+            sampling_constraints={"detokenize": True, "max_tokens": 1},
         ),
     ),
 )
