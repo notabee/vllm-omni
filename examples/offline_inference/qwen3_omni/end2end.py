@@ -399,13 +399,33 @@ def main(args):
             output_wav = os.path.join(output_dir, f"output_{request_id}.wav")
 
             if audio_tensor is not None:
-                # Convert to numpy array and ensure correct format
-                # In async_chunk mode, audio may arrive as a list of chunks
+                while isinstance(audio_tensor, dict) and audio_tensor:
+                    for key in ("audio", "waveform", "audio_waveform", "model_outputs"):
+                        if key in audio_tensor:
+                            audio_tensor = audio_tensor[key]
+                            break
+                    else:
+                        audio_tensor = next(iter(audio_tensor.values()))
+
                 if isinstance(audio_tensor, list):
                     import torch
-                    audio_tensor = torch.cat(
-                        [(t if isinstance(t, torch.Tensor) else torch.tensor(t)).flatten() for t in audio_tensor]
-                    )
+                    unpacked = []
+                    for item in audio_tensor:
+                        while isinstance(item, dict) and item:
+                            for key in ("audio", "waveform", "audio_waveform", "model_outputs"):
+                                if key in item:
+                                    item = item[key]
+                                    break
+                            else:
+                                item = next(iter(item.values()))
+                        unpacked.append(item)
+                    if all(hasattr(t, "flatten") or hasattr(t, "shape") for t in unpacked):
+                        audio_tensor = torch.cat(
+                            [(t if isinstance(t, torch.Tensor) else torch.tensor(t)).flatten() for t in unpacked]
+                        )
+                    else:
+                        audio_tensor = unpacked[0] if len(unpacked) == 1 else unpacked
+
                 if hasattr(audio_tensor, "float"):
                     audio_numpy = audio_tensor.float().detach().cpu().numpy()
                 elif hasattr(audio_tensor, "numpy"):
@@ -415,7 +435,7 @@ def main(args):
                     audio_numpy = np.array(audio_tensor, dtype=np.float32)
 
                 # Ensure audio is 1D (flatten if needed)
-                if audio_numpy.ndim > 1:
+                if hasattr(audio_numpy, "ndim") and audio_numpy.ndim > 1:
                     audio_numpy = audio_numpy.flatten()
 
                 # Save audio file with explicit WAV format
