@@ -297,6 +297,20 @@ class CodePredictorAttention(nn.Module):
             q = torch_npu.npu_rotary_mul(q, cos, sin)
             k = torch_npu.npu_rotary_mul(k, cos, sin)
             attn_out = self._forward_npu_attention(q, k, v, bsz, seq_len)
+        elif current_omni_platform.is_tpu():
+            q = (q * cos) + (_rotate_half(q) * sin)
+            k = (k * cos) + (_rotate_half(k) * sin)
+            if self.is_gqa:
+                k = k.repeat_interleave(self.num_key_value_groups, dim=1)
+                v = v.repeat_interleave(self.num_key_value_groups, dim=1)
+            scores = torch.matmul(q, k.transpose(-2, -1)) * self.scaling
+            causal_mask = torch.triu(
+                torch.full((seq_len, seq_len), float("-inf"), device=q.device, dtype=q.dtype),
+                diagonal=1,
+            )
+            scores = scores + causal_mask
+            attn_weights = torch.softmax(scores, dim=-1)
+            attn_out = torch.matmul(attn_weights, v)
         else:
             q = (q * cos) + (_rotate_half(q) * sin)
             k = (k * cos) + (_rotate_half(k) * sin)
