@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Iterable, Sequence
+from contextlib import nullcontext
 
 import torch
 import torch.nn as nn
@@ -452,11 +453,14 @@ class CodePredictorBaseModel(nn.Module):
         # autocast to float32 is unsupported on CPU; skip fp32 upcast there
         # (CPU uses full-precision intermediates internally).
         input_dtype = inputs_embeds.dtype
-        use_fp32 = input_dtype == torch.float16 and inputs_embeds.device.type != "cpu"
+        use_fp32 = input_dtype == torch.float16 and inputs_embeds.device.type not in ("cpu", "tpu")
         if use_fp32:
             inputs_embeds = inputs_embeds.float()
+            autocast_ctx = torch.amp.autocast(inputs_embeds.device.type, dtype=torch.float32)
+        else:
+            autocast_ctx = nullcontext()
         hidden_states = inputs_embeds
-        with torch.amp.autocast(inputs_embeds.device.type, enabled=use_fp32, dtype=torch.float32):
+        with autocast_ctx:
             position_embeddings = self.rotary_emb(hidden_states, position_ids)
             for layer in self.layers:
                 hidden_states = layer(hidden_states, position_embeddings)
