@@ -1029,6 +1029,10 @@ class CodePredictorWrapper(nn.Module):
         num_groups = self._num_groups
         device = layer0_code.device
         if device.type == "tpu":
+            try:
+                torch.set_num_threads(min(4, torch.get_num_threads()))
+            except Exception:
+                pass
             if next(self.parameters()).device.type != "cpu":
                 self.to("cpu")
             orig_device = device
