@@ -312,11 +312,11 @@ def main(args):
     talker_sampling_params = SamplingParams(
         temperature=0.9,
         top_k=50,
-        max_tokens=4096,
+        max_tokens=1024,
         seed=None,
         detokenize=False,
         repetition_penalty=1.05,
-        stop_token_ids=[2150],  # TALKER_CODEC_EOS_TOKEN_ID
+        stop_token_ids=[4198, 151645],  # TALKER_CODEC_EOS_TOKEN_ID (4198) and <|im_end|> (151645)
     )
 
     # Sampling parameters for Code2Wav stage (audio generation)

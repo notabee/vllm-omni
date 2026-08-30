@@ -819,16 +819,15 @@ def talker2code2wav_full_payload(
         )
         return None
 
-    codec_codes = code_predictor_codes.transpose(0, 1).cpu().reshape(-1).tolist()
+    codec_codes = code_predictor_codes.transpose(0, 1).cpu()
     logger.debug(
         "talker2code2wav_full_payload: raw_shape=%s output_ids_len=%s aligned_rows=%s "
-        "valid_rows=%s placeholders=%s flattened_len=%s pad4196=%s bos4197=%s eos4198=%s",
+        "valid_rows=%s placeholders=%s pad4196=%s bos4197=%s eos4198=%s",
         raw_shape,
         len(output_token_ids),
         codec_stats["aligned_rows"],
         codec_stats["valid_rows"],
         codec_stats["trailing_placeholder_count"],
-        len(codec_codes),
         sum(1 for tid in output_token_ids if tid == _QWEN3_CODEC_PAD_TOKEN_ID),
         sum(1 for tid in output_token_ids if tid == _QWEN3_CODEC_BOS_TOKEN_ID),
         sum(1 for tid in output_token_ids if tid == _QWEN3_CODEC_EOS_TOKEN_ID),

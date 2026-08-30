@@ -57,7 +57,7 @@ QWEN3_OMNI_PIPELINE = PipelineConfig(
             async_chunk_process_next_stage_input_func=(f"{_PROC}.talker2code2wav_async_chunk"),
             sampling_constraints={
                 "detokenize": False,
-                "stop_token_ids": [2150],
+                "stop_token_ids": [4198, 151645],
             },
         ),
         StagePipelineConfig(

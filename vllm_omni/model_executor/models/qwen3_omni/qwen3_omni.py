@@ -494,13 +494,29 @@ class Qwen3OmniMoeForConditionalGeneration(
             if runtime_additional_information is not None:
                 for info in runtime_additional_information:
                     c = info.get("codes", {}).get("audio", None) if isinstance(info.get("codes"), dict) else None
-                    if c is not None and isinstance(c, torch.Tensor) and c.numel() > 0:
+                    if c is not None:
                         dev = inputs_embeds.device if inputs_embeds is not None else next(self.parameters()).device
-                        if c.ndim == 2:
-                            codes = c.unsqueeze(0).to(device=dev, dtype=torch.long)
-                        elif c.ndim == 3:
-                            codes = c.to(device=dev, dtype=torch.long)
-                        break
+                        if isinstance(c, list) and len(c) > 0:
+                            c = torch.tensor(c, dtype=torch.long, device=dev)
+                        if isinstance(c, torch.Tensor) and c.numel() > 0:
+                            c = c.to(device=dev, dtype=torch.long)
+                            if c.ndim == 1 and c.shape[0] % 16 == 0:
+                                codes = c.reshape(1, 16, -1)
+                            elif c.ndim == 2:
+                                if c.shape[0] == 16:
+                                    codes = c.unsqueeze(0)
+                                elif c.shape[1] == 16:
+                                    codes = c.transpose(0, 1).unsqueeze(0)
+                                else:
+                                    codes = c.unsqueeze(0)
+                            elif c.ndim == 3:
+                                if c.shape[1] == 16:
+                                    codes = c
+                                elif c.shape[2] == 16:
+                                    codes = c.permute(0, 2, 1)
+                            if codes is not None:
+                                logger.info("[Code2Wav] Extracted codes from additional_information: shape=%s (%d frames)", tuple(codes.shape), codes.shape[-1])
+                                break
 
             if codes is None:
                 # Extract codec codes from input
