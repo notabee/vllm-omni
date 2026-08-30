@@ -426,11 +426,14 @@ def main(args):
                                 item = next(iter(item.values()))
                         unpacked.append(item)
                     if all(hasattr(t, "flatten") or hasattr(t, "shape") for t in unpacked):
-                        audio_tensor = torch.cat(
-                            [(t if isinstance(t, torch.Tensor) else torch.tensor(t)).flatten() for t in unpacked]
-                        )
+                        if getattr(args, "async_chunk", False):
+                            audio_tensor = torch.cat(
+                                [(t if isinstance(t, torch.Tensor) else torch.tensor(t)).flatten() for t in unpacked]
+                            )
+                        else:
+                            audio_tensor = unpacked[-1]
                     else:
-                        audio_tensor = unpacked[0] if len(unpacked) == 1 else unpacked
+                        audio_tensor = unpacked[-1] if len(unpacked) >= 1 else unpacked
 
                 if hasattr(audio_tensor, "float"):
                     audio_numpy = audio_tensor.float().detach().cpu().numpy()
