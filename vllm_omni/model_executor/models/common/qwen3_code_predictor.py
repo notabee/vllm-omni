@@ -1028,6 +1028,24 @@ class CodePredictorWrapper(nn.Module):
         sample_generator: _GeneratorLike = generators if generators is not None else generator
         num_groups = self._num_groups
         device = layer0_code.device
+        if device.type == "tpu":
+            if next(self.parameters()).device.type != "cpu":
+                self.to("cpu")
+            orig_device = device
+            res = self.forward(
+                layer0_code=layer0_code.to("cpu"),
+                layer0_embed=layer0_embed.to("cpu"),
+                last_talker_hidden=last_talker_hidden.to("cpu"),
+                do_sample=do_sample,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                generator=generator,
+                generators=generators,
+            )
+            if isinstance(res, tuple):
+                return tuple(r.to(device=orig_device) if isinstance(r, torch.Tensor) else r for r in res)
+            return res.to(device=orig_device)
 
         # _setup_compile caches _model_dtype on first call; use it for buffers
         # so they always match model weight precision (#2385).
