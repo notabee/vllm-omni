@@ -391,15 +391,20 @@ def main(args):
             if not mm and output.outputs:
                 mm = getattr(output.outputs[0], "multimodal_output", None)
             
-            if isinstance(mm, dict):
+            from collections.abc import Mapping
+
+            if isinstance(mm, (dict, Mapping)) or hasattr(mm, "get"):
                 audio_tensor = mm.get("audio", mm.get("waveform", mm.get("audio_waveform", mm.get("model_outputs", None))))
             else:
                 audio_tensor = mm
 
+            if (audio_tensor is None or isinstance(audio_tensor, (str, bytes))) and hasattr(mm, "primary_tensor"):
+                audio_tensor = mm.primary_tensor
+
             output_wav = os.path.join(output_dir, f"output_{request_id}.wav")
 
             if audio_tensor is not None:
-                while isinstance(audio_tensor, dict) and audio_tensor:
+                while (isinstance(audio_tensor, (dict, Mapping)) or hasattr(audio_tensor, "get")) and not hasattr(audio_tensor, "float") and not hasattr(audio_tensor, "numpy") and audio_tensor:
                     for key in ("audio", "waveform", "audio_waveform", "model_outputs"):
                         if key in audio_tensor:
                             audio_tensor = audio_tensor[key]
@@ -411,7 +416,7 @@ def main(args):
                     import torch
                     unpacked = []
                     for item in audio_tensor:
-                        while isinstance(item, dict) and item:
+                        while (isinstance(item, (dict, Mapping)) or hasattr(item, "get")) and not hasattr(item, "float") and not hasattr(item, "numpy") and item:
                             for key in ("audio", "waveform", "audio_waveform", "model_outputs"):
                                 if key in item:
                                     item = item[key]
@@ -430,17 +435,22 @@ def main(args):
                     audio_numpy = audio_tensor.float().detach().cpu().numpy()
                 elif hasattr(audio_tensor, "numpy"):
                     audio_numpy = audio_tensor.numpy()
-                else:
+                elif not isinstance(audio_tensor, (str, bytes)):
                     import numpy as np
                     audio_numpy = np.array(audio_tensor, dtype=np.float32)
+                else:
+                    audio_numpy = None
 
-                # Ensure audio is 1D (flatten if needed)
-                if hasattr(audio_numpy, "ndim") and audio_numpy.ndim > 1:
-                    audio_numpy = audio_numpy.flatten()
+                if audio_numpy is not None:
+                    # Ensure audio is 1D (flatten if needed)
+                    if hasattr(audio_numpy, "ndim") and audio_numpy.ndim > 1:
+                        audio_numpy = audio_numpy.flatten()
 
-                # Save audio file with explicit WAV format
-                sf.write(output_wav, audio_numpy, samplerate=24000, format="WAV")
-                print(f"Request ID: {request_id}, Saved audio to {output_wav}")
+                    # Save audio file with explicit WAV format
+                    sf.write(output_wav, audio_numpy, samplerate=24000, format="WAV")
+                    print(f"Request ID: {request_id}, Saved audio to {output_wav}")
+                else:
+                    print(f"Request ID: {request_id}, Could not parse audio tensor from {mm}")
             else:
                 print(f"Request ID: {request_id}, Audio stage completed (multimodal_output={mm})")
 
