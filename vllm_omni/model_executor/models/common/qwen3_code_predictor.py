@@ -301,8 +301,8 @@ class CodePredictorAttention(nn.Module):
             q = (q * cos) + (_rotate_half(q) * sin)
             k = (k * cos) + (_rotate_half(k) * sin)
             if self.is_gqa:
-                k = k.repeat_interleave(self.num_key_value_groups, dim=1)
-                v = v.repeat_interleave(self.num_key_value_groups, dim=1)
+                k = k.repeat_interleave(self.num_queries_per_kv, dim=1)
+                v = v.repeat_interleave(self.num_queries_per_kv, dim=1)
             scores = torch.matmul(q, k.transpose(-2, -1)) * self.scaling
             causal_mask = torch.triu(
                 torch.full((seq_len, seq_len), float("-inf"), device=q.device, dtype=q.dtype),
